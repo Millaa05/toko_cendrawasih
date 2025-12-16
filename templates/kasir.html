@@ -1,0 +1,376 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard Kasir - Toko Cendrawasih{% endblock %}
+
+{% block page_title %}Dashboard Kasir{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/kasir.css') }}">
+{% endblock %}
+
+{% block navigation %}
+<a href="/kasir/home" class="nav-link active">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="3" y="3" width="7" height="7"></rect>
+        <rect x="14" y="3" width="7" height="7"></rect>
+        <rect x="14" y="14" width="7" height="7"></rect>
+        <rect x="3" y="14" width="7" height="7"></rect>
+    </svg>
+    Dashboard
+</a>
+{% endblock %}
+
+{% block content %}
+<div id="alert-container"></div>
+
+<div class="stats-overview">
+    <div class="stat-box">
+        <div class="stat-header">
+            <span class="stat-title">Produk Tersedia</span>
+            <div class="stat-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+                </svg>
+            </div>
+        </div>
+        <div class="stat-value">{{ products|length }}</div>
+        <div class="stat-change positive">Siap dijual</div>
+    </div>
+
+    <div class="stat-box">
+        <div class="stat-header">
+            <span class="stat-title">Item di Keranjang</span>
+            <div class="stat-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="9" cy="21" r="1"></circle>
+                    <circle cx="20" cy="21" r="1"></circle>
+                    <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                </svg>
+            </div>
+        </div>
+        <div class="stat-value" id="cart-count">0</div>
+        <div class="stat-change" id="cart-items-text">Belum ada item</div>
+    </div>
+
+    <div class="stat-box">
+        <div class="stat-header">
+            <span class="stat-title">Total Belanja</span>
+            <div class="stat-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="1" x2="12" y2="23"></line>
+                    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                </svg>
+            </div>
+        </div>
+        <div class="stat-value" id="total-display">Rp 0</div>
+        <div class="stat-change" id="total-change">Siap checkout</div>
+    </div>
+</div>
+
+<div class="dashboard-grid">
+    <div class="panel">
+        <div class="panel-head">
+            <h2>Daftar Produk</h2>
+            <div class="search-box">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <path d="m21 21-4.35-4.35"></path>
+                </svg>
+                <input type="text" id="search-input" placeholder="Cari produk...">
+            </div>
+        </div>
+        <div class="panel-body">
+            <div class="products-list" id="products-list">
+                {% for product in products %}
+                <div class="product-item" data-id="{{ product.kode_barang }}" data-name="{{ product.nama_barang|lower }}" data-price="15000" data-stock="{{ product.total_stok }}">
+                    <div class="product-image">{{ product.kode_barang[:2] }}</div>
+                    <div class="product-details">
+                        <div class="product-name">{{ product.nama_barang }}</div>
+                        <div class="product-meta">
+                            <span class="product-code">{{ product.kode_barang }}</span>
+                            <span class="product-stock {% if product.total_stok < 10 %}low{% endif %}">Stok: {{ product.total_stok }}</span>
+                        </div>
+                    </div>
+                    <span class="product-price">Rp {{ "{:,.0f}".format(15000) }}</span>
+                    <button class="btn-add" onclick="addToCart(this)">Tambah</button>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-head">
+            <h2>Keranjang Belanja</h2>
+            <button class="btn-clear" onclick="clearCart()">Kosongkan</button>
+        </div>
+        <div class="panel-body" id="cart-container">
+            <div class="cart-empty">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <circle cx="9" cy="21" r="1"></circle>
+                    <circle cx="20" cy="21" r="1"></circle>
+                    <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                </svg>
+                <p>Keranjang Kosong</p>
+                <span>Tambahkan produk untuk memulai transaksi</span>
+            </div>
+        </div>
+        <div class="cart-footer">
+            <div class="cart-total">
+                <span>Total Pembayaran</span>
+                <h3 id="cart-total">Rp 0</h3>
+            </div>
+            <button class="btn-checkout" onclick="checkout()" disabled>Proses Checkout</button>
+        </div>
+    </div>
+</div>
+
+<div class="panel history-panel">
+    <div class="panel-head">
+        <h2>Riwayat Transaksi</h2>
+        <div class="refresh-indicator">
+            <span class="refresh-dot" id="refresh-dot"></span>
+            <span>Auto-update</span>
+        </div>
+    </div>
+    <div class="panel-body" style="max-height: 400px;">
+        <table class="history-table">
+            <thead>
+                <tr>
+                    <th>ID Order</th>
+                    <th>Tanggal</th>
+                    <th>Kasir</th>
+                    <th>Total</th>
+                    <th>Waktu</th>
+                </tr>
+            </thead>
+            <tbody id="history-tbody">
+                <tr>
+                    <td colspan="5" style="text-align: center; padding: 32px; color: #86868b;">Memuat data...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let cart = [];
+
+function addToCart(btn) {
+    const item = btn.closest('.product-item');
+    const id = item.dataset.id;
+    const name = item.dataset.name;
+    const price = parseInt(item.dataset.price);
+    const maxStock = parseInt(item.dataset.stock);
+    
+    const existing = cart.find(c => c.id === id);
+    
+    if (existing) {
+        if (existing.qty < maxStock) {
+            existing.qty++;
+        } else {
+            showAlert('Stok tidak mencukupi', 'warning');
+            return;
+        }
+    } else {
+        cart.push({ id, name, price, qty: 1, maxStock });
+    }
+    
+    updateCart();
+    showAlert('Produk ditambahkan', 'success');
+}
+
+function updateCart() {
+    const container = document.getElementById('cart-container');
+    const totalEl = document.getElementById('cart-total');
+    const countEl = document.getElementById('cart-count');
+    const displayEl = document.getElementById('total-display');
+    const itemsText = document.getElementById('cart-items-text');
+    const checkoutBtn = document.querySelector('.btn-checkout');
+    
+    if (cart.length === 0) {
+        container.innerHTML = `
+            <div class="cart-empty">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <circle cx="9" cy="21" r="1"></circle>
+                    <circle cx="20" cy="21" r="1"></circle>
+                    <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                </svg>
+                <p>Keranjang Kosong</p>
+                <span>Tambahkan produk untuk memulai transaksi</span>
+            </div>
+        `;
+        totalEl.textContent = 'Rp 0';
+        countEl.textContent = '0';
+        displayEl.textContent = 'Rp 0';
+        itemsText.textContent = 'Belum ada item';
+        checkoutBtn.disabled = true;
+        return;
+    }
+    
+    let total = 0;
+    let totalItems = 0;
+    let html = '<div class="cart-list">';
+    
+    cart.forEach(item => {
+        const subtotal = item.price * item.qty;
+        total += subtotal;
+        totalItems += item.qty;
+        
+        html += `
+            <div class="cart-entry">
+                <div class="cart-entry-head">
+                    <h4>${item.name}</h4>
+                    <button class="btn-remove" onclick="removeItem('${item.id}')">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+                <div class="cart-entry-body">
+                    <span class="entry-code">${item.id}</span>
+                    <div class="qty-box">
+                        <button onclick="updateQty('${item.id}', -1)">−</button>
+                        <span>${item.qty}</span>
+                        <button onclick="updateQty('${item.id}', 1)">+</button>
+                    </div>
+                </div>
+                <div class="cart-entry-foot">
+                    <span class="entry-price">Rp ${item.price.toLocaleString('id-ID')}</span>
+                    <span class="entry-total">Rp ${subtotal.toLocaleString('id-ID')}</span>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    container.innerHTML = html;
+    totalEl.textContent = `Rp ${total.toLocaleString('id-ID')}`;
+    countEl.textContent = totalItems;
+    displayEl.textContent = `Rp ${total.toLocaleString('id-ID')}`;
+    itemsText.textContent = `${totalItems} item`;
+    checkoutBtn.disabled = false;
+}
+
+function updateQty(id, delta) {
+    const item = cart.find(c => c.id === id);
+    if (item) {
+        const newQty = item.qty + delta;
+        if (newQty > 0 && newQty <= item.maxStock) {
+            item.qty = newQty;
+            updateCart();
+        } else if (newQty > item.maxStock) {
+            showAlert('Stok tidak mencukupi', 'warning');
+        }
+    }
+}
+
+function removeItem(id) {
+    cart = cart.filter(c => c.id !== id);
+    updateCart();
+}
+
+function clearCart() {
+    if (cart.length === 0) return;
+    if (confirm('Kosongkan keranjang?')) {
+        cart = [];
+        updateCart();
+    }
+}
+
+async function checkout() {
+    if (cart.length === 0) return;
+    
+    try {
+        const payload = cart.map(c => ({
+            kode_barang: c.id,
+            nama_barang: c.name,
+            harga_jual: c.price,
+            qty: c.qty,
+            stok_max: c.maxStock
+        }));
+        
+        const res = await fetch('/kasir/process_sale', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        const data = await res.json();
+        
+        if (data.success) {
+            showAlert(`Transaksi berhasil! Total: Rp ${data.total.toLocaleString('id-ID')}`, 'success');
+            cart = [];
+            updateCart();
+            loadHistory();
+            setTimeout(() => location.reload(), 2000);
+        } else {
+            showAlert(data.message, 'error');
+        }
+    } catch (e) {
+        showAlert('Terjadi kesalahan', 'error');
+    }
+}
+
+async function loadHistory() {
+    const dot = document.getElementById('refresh-dot');
+    const tbody = document.getElementById('history-tbody');
+    
+    dot.classList.add('active');
+    
+    try {
+        const res = await fetch('/kasir/api/sales_history');
+        const data = await res.json();
+        
+        if (data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 32px; color: #86868b;">Belum ada transaksi</td></tr>';
+            return;
+        }
+        
+        tbody.innerHTML = data.map(d => {
+            const time = new Date(d.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+            return `
+                <tr>
+                    <td class="order-id">#${d.id}</td>
+                    <td>${d.tanggal_penjualan}</td>
+                    <td>${d.kasir_nama}</td>
+                    <td class="amount">Rp ${Number(d.total_transaksi).toLocaleString('id-ID')}</td>
+                    <td>${time}</td>
+                </tr>
+            `;
+        }).join('');
+    } catch (e) {
+        console.error(e);
+    } finally {
+        setTimeout(() => dot.classList.remove('active'), 500);
+    }
+}
+
+function showAlert(msg, type) {
+    const container = document.getElementById('alert-container');
+    const alert = document.createElement('div');
+    alert.className = `alert alert-${type}`;
+    alert.textContent = msg;
+    container.appendChild(alert);
+    
+    setTimeout(() => {
+        alert.classList.add('fade-out');
+        setTimeout(() => alert.remove(), 300);
+    }, 3000);
+}
+
+document.getElementById('search-input').addEventListener('input', e => {
+    const term = e.target.value.toLowerCase();
+    document.querySelectorAll('.product-item').forEach(item => {
+        const name = item.dataset.name;
+        item.style.display = name.includes(term) ? 'flex' : 'none';
+    });
+});
+
+loadHistory();
+setInterval(loadHistory, 5000);
+</script>
+{% endblock %}

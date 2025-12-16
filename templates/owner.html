@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard Owner - Toko Cendrawasih{% endblock %}
+
+{% block page_title %}Dashboard Owner{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/owner.css') }}">
+{% endblock %}
+
+{% block navigation %}
+<a href="/owner/home" class="nav-link active">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+    </svg>
+    Dashboard
+</a>
+{% endblock %}
+
+{% block content %}
+<div id="alert-container"></div>
+
+<div class="stats-overview">
+    <div class="stat-box highlight">
+        <div class="stat-header">
+            <span class="stat-title">Penjualan Hari Ini</span>
+            <div class="stat-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                </svg>
+            </div>
+        </div>
+        <div class="stat-value" id="today-sales">Rp 0</div>
+        <div class="stat-change positive">Penjualan harian</div>
+    </div>
+
+    <div class="stat-box">
+        <div class="stat-header">
+            <span class="stat-title">Pembelian Hari Ini</span>
+            <div class="stat-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="9" cy="21" r="1"></circle>
+                    <circle cx="20" cy="21" r="1"></circle>
+                    <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                </svg>
+            </div>
+        </div>
+        <div class="stat-value" id="today-purchases">Rp 0</div>
+        <div class="stat-change">Pengeluaran harian</div>
+    </div>
+
+    <div class="stat-box profit">
+        <div class="stat-header">
+            <span class="stat-title">Profit Hari Ini</span>
+            <div class="stat-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="1" x2="12" y2="23"></line>
+                    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                </svg>
+            </div>
+        </div>
+        <div class="stat-value profit-value" id="today-profit">Rp 0</div>
+        <div class="stat-change positive" id="profit-status">Keuntungan</div>
+    </div>
+</div>
+
+<div class="chart-grid">
+    <div class="panel">
+        <div class="panel-head">
+            <h2>Penjualan 7 Hari Terakhir</h2>
+        </div>
+        <div class="panel-body">
+            <div class="simple-chart" id="sales-chart">
+                <div style="text-align: center; padding: 48px; color: #86868b;">Memuat grafik...</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-head">
+            <h2>Pembelian 7 Hari Terakhir</h2>
+        </div>
+        <div class="panel-body">
+            <div class="simple-chart" id="purchase-chart">
+                <div style="text-align: center; padding: 48px; color: #86868b;">Memuat grafik...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="panel">
+    <div class="panel-head">
+        <h2>Ringkasan Keuangan Mingguan</h2>
+    </div>
+    <div class="panel-body">
+        <table class="summary-table">
+            <thead>
+                <tr>
+                    <th>Tanggal</th>
+                    <th>Penjualan</th>
+                    <th>Pembelian</th>
+                    <th>Profit/Loss</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody id="summary-tbody">
+                <tr>
+                    <td colspan="5" style="text-align: center; padding: 32px; color: #86868b;">Memuat data...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadSummary() {
+    try {
+        const res = await fetch('/owner/api/summary');
+        const data = await res.json();
+        
+        document.getElementById('today-sales').textContent = `Rp ${Number(data.today_sales).toLocaleString('id-ID')}`;
+        document.getElementById('today-purchases').textContent = `Rp ${Number(data.today_purchases).toLocaleString('id-ID')}`;
+        
+        const profit = Number(data.today_profit);
+        const profitEl = document.getElementById('today-profit');
+        const statusEl = document.getElementById('profit-status');
+        
+        profitEl.textContent = `Rp ${Math.abs(profit).toLocaleString('id-ID')}`;
+        
+        if (profit >= 0) {
+            profitEl.style.color = '#4caf50';
+            statusEl.textContent = 'Keuntungan';
+            statusEl.className = 'stat-change positive';
+        } else {
+            profitEl.style.color = '#f44336';
+            statusEl.textContent = 'Kerugian';
+            statusEl.className = 'stat-change negative';
+        }
+        
+        renderCharts(data.weekly_sales, data.weekly_purchases);
+        renderSummaryTable(data.weekly_sales, data.weekly_purchases);
+        
+    } catch (error) {
+        console.error(error);
+    }
+}
+
+function renderCharts(salesData, purchaseData) {
+    const salesChart = document.getElementById('sales-chart');
+    const purchaseChart = document.getElementById('purchase-chart');
+    
+    if (salesData.length === 0) {
+        salesChart.innerHTML = '<div style="text-align: center; padding: 48px; color: #86868b;">Belum ada data</div>';
+    } else {
+        const maxSales = Math.max(...salesData.map(d => parseFloat(d.penjualan)));
+        salesChart.innerHTML = salesData.reverse().map(d => {
+            const height = (parseFloat(d.penjualan) / maxSales) * 100;
+            return `
+                <div class="chart-bar">
+                    <div class="bar" style="height: ${height}%"></div>
+                    <div class="bar-label">${new Date(d.tanggal).getDate()}/${new Date(d.tanggal).getMonth()+1}</div>
+                </div>
+            `;
+        }).join('');
+    }
+    
+    if (purchaseData.length === 0) {
+        purchaseChart.innerHTML = '<div style="text-align: center; padding: 48px; color: #86868b;">Belum ada data</div>';
+    } else {
+        const maxPurchase = Math.max(...purchaseData.map(d => parseFloat(d.pembelian)));
+        purchaseChart.innerHTML = purchaseData.reverse().map(d => {
+            const height = (parseFloat(d.pembelian) / maxPurchase) * 100;
+            return `
+                <div class="chart-bar">
+                    <div class="bar purchase" style="height: ${height}%"></div>
+                    <div class="bar-label">${new Date(d.tanggal).getDate()}/${new Date(d.tanggal).getMonth()+1}</div>
+                </div>
+            `;
+        }).join('');
+    }
+}
+
+function renderSummaryTable(salesData, purchaseData) {
+    const tbody = document.getElementById('summary-tbody');
+    
+    const salesMap = {};
+    salesData.forEach(s => {
+        salesMap[s.tanggal] = parseFloat(s.penjualan);
+    });
+    
+    const purchaseMap = {};
+    purchaseData.forEach(p => {
+        purchaseMap[p.tanggal] = parseFloat(p.pembelian);
+    });
+    
+    const allDates = [...new Set([...salesData.map(s => s.tanggal), ...purchaseData.map(p => p.tanggal)])];
+    allDates.sort((a, b) => new Date(b) - new Date(a));
+    
+    if (allDates.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 32px; color: #86868b;">Belum ada data</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = allDates.map(date => {
+        const sales = salesMap[date] || 0;
+        const purchase = purchaseMap[date] || 0;
+        const profit = sales - purchase;
+        const statusClass = profit >= 0 ? 'positive' : 'negative';
+        const statusText = profit >= 0 ? 'Profit' : 'Loss';
+        
+        return `
+            <tr>
+                <td>${date}</td>
+                <td class="amount">Rp ${Math.round(sales).toLocaleString('id-ID')}</td>
+                <td class="amount">Rp ${Math.round(purchase).toLocaleString('id-ID')}</td>
+                <td class="profit-cell ${statusClass}">Rp ${Math.abs(Math.round(profit)).toLocaleString('id-ID')}</td>
+                <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+            </tr>
+        `;
+    }).join('');
+}
+
+loadSummary();
+setInterval(loadSummary, 60000);
+</script>
+{% endblock %}

@@ -1,0 +1,363 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard Gudang - Toko Cendrawasih{% endblock %}
+
+{% block page_title %}Dashboard Gudang{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/gudang.css') }}">
+{% endblock %}
+
+{% block navigation %}
+<a href="/gudang/home" class="nav-link active">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+    </svg>
+    Dashboard
+</a>
+{% endblock %}
+
+{% block content %}
+<div id="alert-container"></div>
+
+<div class="stats-overview">
+    <div class="stat-box">
+        <div class="stat-header">
+            <span class="stat-title">Total Stok</span>
+            <div class="stat-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                </svg>
+            </div>
+        </div>
+        <div class="stat-value" id="total-items">{{ total_stock }}</div>
+        <div class="stat-change">Item berbeda</div>
+    </div>
+
+    <div class="stat-box">
+        <div class="stat-header">
+            <span class="stat-title">Low Stock Alert</span>
+            <div class="stat-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                </svg>
+            </div>
+        </div>
+        <div class="stat-value" id="low-stock-count">0</div>
+        <div class="stat-change negative" id="low-stock-text">Loading...</div>
+    </div>
+
+    <div class="stat-box">
+        <div class="stat-header">
+            <span class="stat-title">Expiry Alert</span>
+            <div class="stat-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+            </div>
+        </div>
+        <div class="stat-value" id="expiry-count">0</div>
+        <div class="stat-change" id="expiry-text">Loading...</div>
+    </div>
+</div>
+
+<div class="main-layout">
+    <div class="left-column">
+        <div class="panel">
+            <div class="panel-head">
+                <h2>Input Stok Baru</h2>
+            </div>
+            <div class="panel-body">
+                <form id="stock-form" class="stock-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Kode Barang</label>
+                            <input type="text" name="kode_barang" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Nama Barang</label>
+                            <input type="text" name="nama_barang" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Jumlah Stok</label>
+                            <input type="number" name="jumlah" min="1" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Harga Beli</label>
+                            <input type="number" name="harga_beli" min="0" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Tanggal Masuk</label>
+                            <input type="date" name="tanggal_masuk" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Tanggal Kadaluarsa</label>
+                            <input type="date" name="tanggal_kadaluarsa" required>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn-submit">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                            <polyline points="7 3 7 8 15 8"></polyline>
+                        </svg>
+                        Simpan Stok
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-head">
+                <h2>Daftar Stok Barang</h2>
+            </div>
+            <div class="panel-body" style="max-height: 500px;">
+                <table class="stock-table">
+                    <thead>
+                        <tr>
+                            <th>Kode</th>
+                            <th>Nama Barang</th>
+                            <th>Stok</th>
+                            <th>Expired</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="stock-tbody">
+                        <tr>
+                            <td colspan="5" style="text-align: center; padding: 32px; color: #86868b;">Memuat data...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="right-column">
+        <div class="panel alert-panel">
+            <div class="panel-head">
+                <h2>Alert Notifications</h2>
+            </div>
+            <div class="panel-body" id="alerts-container">
+                <div style="text-align: center; padding: 32px; color: #86868b;">Loading alerts...</div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-head">
+                <h2>ROP Analysis</h2>
+            </div>
+            <div class="panel-body">
+                <table class="rop-table">
+                    <thead>
+                        <tr>
+                            <th>Produk</th>
+                            <th>Stok</th>
+                            <th>Avg/Hari</th>
+                            <th>ROP</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rop-tbody">
+                        <tr>
+                            <td colspan="5" style="text-align: center; padding: 24px; color: #86868b;">Memuat...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const today = new Date().toISOString().split('T')[0];
+document.querySelector('input[name="tanggal_masuk"]').value = today;
+
+document.getElementById('stock-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target);
+    const data = Object.fromEntries(formData);
+    
+    try {
+        const res = await fetch('/gudang/add_stock', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await res.json();
+        
+        if (result.success) {
+            showAlert(result.message, 'success');
+            e.target.reset();
+            document.querySelector('input[name="tanggal_masuk"]').value = today;
+            loadStockList();
+            loadAlerts();
+            loadROP();
+        } else {
+            showAlert(result.message, 'error');
+        }
+    } catch (error) {
+        showAlert('Gagal menyimpan stok', 'error');
+    }
+});
+
+async function loadStockList() {
+    try {
+        const res = await fetch('/gudang/api/stock_list');
+        const stocks = await res.json();
+        
+        const tbody = document.getElementById('stock-tbody');
+        const today = new Date();
+        const warning = new Date(today);
+        warning.setDate(warning.getDate() + 10);
+        
+        if (stocks.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 32px; color: #86868b;">Belum ada stok</td></tr>';
+            return;
+        }
+        
+        tbody.innerHTML = stocks.map(s => {
+            const expDate = new Date(s.tanggal_kadaluarsa);
+            let statusClass = '';
+            let statusText = 'OK';
+            
+            if (expDate < today) {
+                statusClass = 'expired';
+                statusText = 'EXPIRED';
+            } else if (expDate <= warning) {
+                statusClass = 'expiring';
+                statusText = 'Expiring Soon';
+            }
+            
+            return `
+                <tr>
+                    <td class="code-cell">${s.kode_barang}</td>
+                    <td>${s.nama_barang}</td>
+                    <td><strong>${s.total_stok}</strong></td>
+                    <td>${s.tanggal_kadaluarsa}</td>
+                    <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                </tr>
+            `;
+        }).join('');
+    } catch (error) {
+        console.error(error);
+    }
+}
+
+async function loadAlerts() {
+    try {
+        const res = await fetch('/gudang/api/alerts');
+        const data = await res.json();
+        
+        const container = document.getElementById('alerts-container');
+        const lowStock = document.getElementById('low-stock-count');
+        const lowText = document.getElementById('low-stock-text');
+        const expCount = document.getElementById('expiry-count');
+        const expText = document.getElementById('expiry-text');
+        
+        const totalAlerts = data.expiry_alerts.length + data.low_stock_alerts.length;
+        
+        lowStock.textContent = data.low_stock_alerts.length;
+        lowText.textContent = data.low_stock_alerts.length > 0 ? 'Butuh restock' : 'Semua OK';
+        
+        expCount.textContent = data.expiry_alerts.length;
+        expText.textContent = data.expiry_alerts.length > 0 ? 'Perlu perhatian' : 'Semua OK';
+        
+        if (totalAlerts === 0) {
+            container.innerHTML = '<div class="no-alerts">Tidak ada alert saat ini</div>';
+            return;
+        }
+        
+        let html = '';
+        
+        data.expiry_alerts.forEach(alert => {
+            const type = alert.alert_type === 'expired' ? 'danger' : 'warning';
+            const icon = alert.alert_type === 'expired' ? '❌' : '⚠️';
+            html += `
+                <div class="alert-card ${type}">
+                    <div class="alert-icon">${icon}</div>
+                    <div class="alert-content">
+                        <div class="alert-title">${alert.nama_barang}</div>
+                        <div class="alert-desc">${alert.alert_type === 'expired' ? 'Sudah kadaluarsa' : 'Mendekati kadaluarsa'}: ${alert.tanggal_kadaluarsa}</div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        data.low_stock_alerts.forEach(alert => {
+            html += `
+                <div class="alert-card info">
+                    <div class="alert-icon">📦</div>
+                    <div class="alert-content">
+                        <div class="alert-title">${alert.nama_barang}</div>
+                        <div class="alert-desc">Stok rendah: ${alert.total_stok} (ROP: ${alert.rop})</div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        container.innerHTML = html;
+    } catch (error) {
+        console.error(error);
+    }
+}
+
+async function loadROP() {
+    try {
+        const res = await fetch('/gudang/api/rop_analysis');
+        const data = await res.json();
+        
+        const tbody = document.getElementById('rop-tbody');
+        
+        if (data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 24px; color: #86868b;">Belum ada data</td></tr>';
+            return;
+        }
+        
+        tbody.innerHTML = data.map(d => {
+            const statusClass = d.status === 'LOW' ? 'low' : 'ok';
+            return `
+                <tr>
+                    <td>${d.nama_barang}</td>
+                    <td><strong>${d.total_stok}</strong></td>
+                    <td>${d.rata_penjualan_harian}</td>
+                    <td><strong>${d.reorder_point}</strong></td>
+                    <td>
+                </tr>
+            `;
+        }).join('');
+    } catch (error) {
+        console.error(error);
+    }
+}
+
+function showAlert(msg, type) {
+    const container = document.getElementById('alert-container');
+    const alert = document.createElement('div');
+    alert.className = `alert alert-${type}`;
+    alert.textContent = msg;
+    container.appendChild(alert);
+    
+    setTimeout(() => {
+        alert.classList.add('fade-out');
+        setTimeout(() => alert.remove(), 300);
+    }, 3000);
+}
+
+loadStockList();
+loadAlerts();
+loadROP();
+setInterval(loadAlerts, 10000);
+setInterval(loadStockList, 15000);
+</script>
+{% endblock %}
